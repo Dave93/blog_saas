@@ -1,6 +1,5 @@
 import { useToast } from "@admin/components/ui/use-toast";
 import { Button } from "@components/ui/button";
-
 import { useMemo, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
@@ -440,9 +439,9 @@ export default function UsersForm({
         e.stopPropagation();
         void form.handleSubmit();
       }}
-      className="space-y-8"
+      className="space-y-2 grid grid-cols-1 gap-4 sm:grid-cols-2 p-6"
     >
-      <div className="space-y-2">
+      <div className="space-y-2 col-start-1 col-end-3">
         <div>
           <Label>Статус</Label>
         </div>
@@ -454,7 +453,7 @@ export default function UsersForm({
                   label="Статус"
                   placeholder="Выберите статус"
                   selectedKeys={[field.getValue()]}
-                  className="max-w-xs"
+                  className=""
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                     field.setValue(
                       // @ts-ignore
@@ -524,7 +523,7 @@ export default function UsersForm({
           }}
         </form.Field>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-2 col-span-2">
         <div>
           <Label>Роль</Label>
         </div>
@@ -532,7 +531,7 @@ export default function UsersForm({
           label="Роль"
           placeholder="Выберите роль"
           selectedKeys={userRoleId ? [userRoleId] : []}
-          className="max-w-xs"
+          className=""
           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
             // @ts-ignore
             setChangedRoleId(e.target.value);
@@ -556,82 +555,7 @@ export default function UsersForm({
           )}
         </Select>
       </div>
-      <div className="space-y-2">
-        <div>
-          <Label>Филиалы</Label>
-        </div>
-        <Select
-          label="Филиалы"
-          selectionMode="multiple"
-          isMultiline={true}
-          placeholder="Выберите филиал"
-          selectedKeys={changedTerminalId}
-          classNames={{
-            base: "max-w-xs",
-            trigger: "min-h-unit-12 py-2",
-          }}
-          onSelectionChange={setChangedTerminalId}
-          popoverProps={{
-            portalContainer: formRef.current!,
-            offset: 0,
-            containerPadding: 0,
-          }}
-          renderValue={(items: SelectedItems<string>) => {
-            return (
-              <div className="flex flex-wrap gap-2">
-                {changedTerminalId != "all" &&
-                  Array.from(changedTerminalId).map((item) => (
-                    <Chip key={item}>{terminalLabelById[item]}</Chip>
-                  ))}
-              </div>
-            );
-          }}
-        >
-          {terminalsForSelect.map((terminal) => (
-            <SelectItem key={terminal.value} value={terminal.value}>
-              {terminal.label}
-            </SelectItem>
-          ))}
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <div>
-          <Label>Склады</Label>
-        </div>
-        <Select
-          label="Cклады"
-          selectionMode="multiple"
-          isMultiline={true}
-          placeholder="Выберите склады"
-          selectedKeys={changedStoreId}
-          classNames={{
-            base: "max-w-xs",
-            trigger: "min-h-unit-12 py-2",
-          }}
-          onSelectionChange={setChangedStoreId}
-          popoverProps={{
-            portalContainer: formRef.current!,
-            offset: 0,
-            containerPadding: 0,
-          }}
-          renderValue={(items: SelectedItems<string>) => {
-            return (
-              <div className="flex flex-wrap gap-2">
-                {changedStoreId != "all" &&
-                  Array.from(changedStoreId).map((item) => (
-                    <Chip key={item}>{storeLabelById[item]}</Chip>
-                  ))}
-              </div>
-            );
-          }}
-        >
-          {storesForSelect.map((store) => (
-            <SelectItem key={store.value} value={store.value}>
-              {store.label}
-            </SelectItem>
-          ))}
-        </Select>
-      </div>
+
       <div className="space-y-2">
         <div>
           <Label>Имя</Label>
@@ -678,10 +602,12 @@ export default function UsersForm({
           }}
         </form.Field>
       </div>
-      <Button type="submit" disabled={isLoading}>
-        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        Submit
-      </Button>
+      <div className="pt-4 ">
+        <Button type="submit" disabled={isLoading}>
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Submit
+        </Button>
+      </div>
     </form>
   );
 }
