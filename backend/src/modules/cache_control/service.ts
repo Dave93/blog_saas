@@ -1,39 +1,21 @@
-import {
-  apiTokensWithRelations,
-  organizationWithCredentials,
-  terminalsWithCredentials,
-} from "./dto/cache.dto";
 import { DrizzleDB } from "@backend/lib/db";
 import { InferSelectModel, eq, getTableColumns } from "drizzle-orm";
 import {
-  api_tokens,
-  corporation_store,
   credentials,
-  organization,
   permissions,
-  product_groups,
-  report_groups,
-  reports_status,
   roles,
   roles_permissions,
-  scheduled_reports,
   settings,
   users,
-  users_stores,
-  work_schedules,
 } from "@backend/../drizzle/schema";
 import { RolesWithRelations } from "../roles/dto/roles.dto";
 import { verifyJwt } from "@backend/lib/bcrypt";
 import { userById, userFirstRole } from "@backend/lib/prepare_statements";
 import Redis from "ioredis";
 
-
 export class CacheControlService {
-
   private redis: Redis | undefined;
-  constructor(
-    private readonly drizzle: DrizzleDB
-  ) {
+  constructor(private readonly drizzle: DrizzleDB) {
     this.init();
   }
 
@@ -71,11 +53,8 @@ export class CacheControlService {
     if (redis) {
       const permissionsList = await this.drizzle.query.permissions.findMany();
       for (const permission of permissionsList) {
-        await redis.hmset(
-          `permission:${permission.id}`,
-          permission
-        );
-        await redis.rpush('permissions', permission.id);
+        await redis.hmset(`permission:${permission.id}`, permission);
+        await redis.rpush("permissions", permission.id);
       }
     }
   }
@@ -83,17 +62,13 @@ export class CacheControlService {
   async getCachedPermissions({ take }: { take?: number }) {
     const redis = this.getRedis();
     if (redis) {
-      let permissionsList: InferSelectModel<
-        typeof permissions
-      >[] = [];
-      let permissionIds = await redis.lrange('permissions', 0, take ?? -1);
+      let permissionsList: InferSelectModel<typeof permissions>[] = [];
+      let permissionIds = await redis.lrange("permissions", 0, take ?? -1);
       for (const permissionId of permissionIds) {
-        const permission = await redis.hgetall(
-          `permission:${permissionId}`
-        );
+        const permission = await redis.hgetall(`permission:${permissionId}`);
 
         permissionsList.push({
-          active: permission.active === 'true',
+          active: permission.active === "true",
           slug: permission.slug,
           description: permission.description,
           created_at: permission.created_at,
@@ -133,22 +108,24 @@ export class CacheControlService {
         .execute();
 
       for (const role of rolesList) {
-        await redis.hmset(
-          `role:${role.id}`,
-          role
-        );
-        await redis.rpush('roles', role.id);
+        await redis.hmset(`role:${role.id}`, role);
+        await redis.rpush("roles", role.id);
       }
 
-      const permissionSlugsByRoleId = rolesPermissionsList.reduce((acc, rolePermission) => {
-        if (!acc[rolePermission.role_id]) {
-          acc[rolePermission.role_id] = [];
-        }
-        acc[rolePermission.role_id].push(rolePermission.slug!);
-        return acc;
-      }, {} as Record<string, string[]>);
+      const permissionSlugsByRoleId = rolesPermissionsList.reduce(
+        (acc, rolePermission) => {
+          if (!acc[rolePermission.role_id]) {
+            acc[rolePermission.role_id] = [];
+          }
+          acc[rolePermission.role_id].push(rolePermission.slug!);
+          return acc;
+        },
+        {} as Record<string, string[]>
+      );
 
-      for (const [roleId, permissionSlugs] of Object.entries(permissionSlugsByRoleId)) {
+      for (const [roleId, permissionSlugs] of Object.entries(
+        permissionSlugsByRoleId
+      )) {
         await redis.sadd(`role_permission:${roleId}`, ...permissionSlugs);
       }
     }
@@ -157,17 +134,13 @@ export class CacheControlService {
   async getCachedRoles({ take }: { take?: number }) {
     const redis = this.getRedis();
     if (redis) {
-      let rolesList: InferSelectModel<
-        typeof roles
-      >[] = [];
-      let roleIds = await redis.lrange('roles', 0, take ?? -1);
+      let rolesList: InferSelectModel<typeof roles>[] = [];
+      let roleIds = await redis.lrange("roles", 0, take ?? -1);
       for (const roleId of roleIds) {
-        const role = await redis.hgetall(
-          `role:${roleId}`
-        );
+        const role = await redis.hgetall(`role:${roleId}`);
 
         rolesList.push({
-          active: role.active === 'true',
+          active: role.active === "true",
           name: role.name,
           code: role.code,
           created_at: role.created_at,
@@ -198,11 +171,8 @@ export class CacheControlService {
     if (redis) {
       const settingsList = await this.drizzle.query.settings.findMany({});
       for (const setting of settingsList) {
-        await redis.hmset(
-          `setting:${setting.id}`,
-          setting
-        );
-        await redis.rpush('settings', setting.id);
+        await redis.hmset(`setting:${setting.id}`, setting);
+        await redis.rpush("settings", setting.id);
       }
     }
   }
@@ -210,20 +180,16 @@ export class CacheControlService {
   async getCachedSettings({ take }: { take?: number }) {
     const redis = this.getRedis();
     if (redis) {
-      let settingsList: InferSelectModel<
-        typeof settings
-      >[] = [];
-      let settingIds = await redis.lrange('settings', 0, take ?? -1);
+      let settingsList: InferSelectModel<typeof settings>[] = [];
+      let settingIds = await redis.lrange("settings", 0, take ?? -1);
       for (const settingId of settingIds) {
-        const setting = await redis.hgetall(
-          `setting:${settingId}`
-        );
+        const setting = await redis.hgetall(`setting:${settingId}`);
 
         settingsList.push({
           id: settingId,
           key: setting.key,
           value: setting.value,
-          is_secure: setting.is_secure === 'true',
+          is_secure: setting.is_secure === "true",
           created_at: setting.created_at,
           updated_at: setting.updated_at,
         });
@@ -250,13 +216,13 @@ export class CacheControlService {
 
     const redis = this.getRedis();
     if (redis) {
-
       const userRole = await userFirstRole.execute({ user_id: foundUser.id });
 
       // getting rights
       let permissions: string[] = [];
       if (userRole) {
-        permissions = await this.getPermissionsByRoleId(userRole.role_id) ?? [];
+        permissions =
+          (await this.getPermissionsByRoleId(userRole.role_id)) ?? [];
       }
       await redis.set(
         `user_data:${accessToken}`,
@@ -289,11 +255,9 @@ export class CacheControlService {
     try {
       const redis = this.getRedis();
       if (redis) {
-        await redis.del(
-          `user_data:${accessToken}`
-        );
+        await redis.del(`user_data:${accessToken}`);
       }
-    } catch (e) { }
+    } catch (e) {}
   }
 
   async getCachedUserDataByToken(accessToken: string): Promise<{
@@ -310,9 +274,7 @@ export class CacheControlService {
 
       const redis = this.getRedis();
       if (redis) {
-        const userData = await redis.get(
-          `user_data:${accessToken}`
-        );
+        const userData = await redis.get(`user_data:${accessToken}`);
         if (userData) {
           return JSON.parse(userData);
         } else {
