@@ -14,96 +14,144 @@ import { userById, userFirstRole } from "@backend/lib/prepare_statements";
 import Redis from "ioredis";
 
 export class CacheControlService {
-  constructor(
-    private readonly drizzle: DrizzleDB,
-    private readonly redis: Redis
-  ) {
+  private redis: Redis | undefined;
+  constructor(private readonly drizzle: DrizzleDB) {
+    this.init();
+  }
+
+  async init() {
+    await this.initRedis();
     this.cachePermissions();
     this.cacheRoles();
     this.cacheSettings();
-    this.cacheCredentials();
+  }
+
+  async initRedis() {
+    if (process.env.REDIS_URL) {
+      console.log("REDIS_URL", process.env.REDIS_URL);
+      this.redis = new Redis(process.env.REDIS_URL);
+    } else if (process.env.REDIS_LOCAL_HOST && process.env.REDIS_LOCAL_PORT) {
+      this.redis = new Redis({
+        host: process.env.REDIS_LOCAL_HOST,
+        port: +process.env.REDIS_LOCAL_PORT,
+      });
+    } else {
+      throw new Error("Redis is not configured");
+    }
+  }
+
+  getRedis() {
+    if (this.redis !== undefined) {
+      return this.redis;
+    } else {
+      throw new Error("Redis is not configured");
+    }
   }
 
   async cachePermissions() {
-    const permissions = await this.drizzle.query.permissions.findMany();
-    await this.redis.set(
-      `${process.env.PROJECT_PREFIX}permissions`,
-      JSON.stringify(permissions)
-    );
+    const redis = this.getRedis();
+    if (redis) {
+      const permissionsList = await this.drizzle.query.permissions.findMany();
+      for (const permission of permissionsList) {
+        await redis.hmset(`permission:${permission.id}`, permission);
+        await redis.rpush("permissions", permission.id);
+      }
+    }
   }
 
   async getCachedPermissions({ take }: { take?: number }) {
-    const permissionsList = await this.redis.get(
-      `${process.env.PROJECT_PREFIX}permissions`
-    );
-    let res = JSON.parse(permissionsList ?? "[]") as InferSelectModel<
-      typeof permissions
-    >[];
+    const redis = this.getRedis();
+    if (redis) {
+      let permissionsList: InferSelectModel<typeof permissions>[] = [];
+      let permissionIds = await redis.lrange("permissions", 0, take ?? -1);
+      for (const permissionId of permissionIds) {
+        const permission = await redis.hgetall(`permission:${permissionId}`);
 
-    if (take && res.length > take) {
-      res = res.slice(0, take);
+        permissionsList.push({
+          active: permission.active === "true",
+          slug: permission.slug,
+          description: permission.description,
+          created_at: permission.created_at,
+          updated_at: permission.updated_at,
+          id: permissionId,
+          created_by: permission.created_by,
+          updated_by: permission.updated_by,
+        });
+      }
+      return permissionsList;
     }
-
-    return res;
   }
 
   async cacheRoles() {
-    const rolesList = await this.drizzle
-      .select({
-        id: roles.id,
-        name: roles.name,
-        code: roles.code,
-        active: roles.active,
-      })
-      .from(roles)
-      .execute();
+    const redis = this.getRedis();
+    if (redis) {
+      const rolesList = await this.drizzle
+        .select({
+          id: roles.id,
+          name: roles.name,
+          code: roles.code,
+          active: roles.active,
+        })
+        .from(roles)
+        .execute();
 
-    const rolesPermissionsList = await this.drizzle
-      .select({
-        slug: permissions.slug,
-        role_id: roles_permissions.role_id,
-      })
-      .from(roles_permissions)
-      .leftJoin(
-        permissions,
-        eq(roles_permissions.permission_id, permissions.id)
-      )
-      .execute();
+      const rolesPermissionsList = await this.drizzle
+        .select({
+          slug: permissions.slug,
+          role_id: roles_permissions.role_id,
+        })
+        .from(roles_permissions)
+        .leftJoin(
+          permissions,
+          eq(roles_permissions.permission_id, permissions.id)
+        )
+        .execute();
 
-    const rolesPermissions = rolesPermissionsList.reduce(
-      (acc: any, cur: any) => {
-        if (!acc[cur.role_id]) {
-          acc[cur.role_id] = [];
-        }
-        acc[cur.role_id].push(cur.slug);
-        return acc;
-      },
-      {}
-    );
+      for (const role of rolesList) {
+        await redis.hmset(`role:${role.id}`, role);
+        await redis.rpush("roles", role.id);
+      }
 
-    const res = rolesList.map((role: any) => {
-      return {
-        ...role,
-        permissions: rolesPermissions[role.id] || [],
-      };
-    });
-    await this.redis.set(
-      `${process.env.PROJECT_PREFIX}_roles`,
-      JSON.stringify(res)
-    );
+      const permissionSlugsByRoleId = rolesPermissionsList.reduce(
+        (acc, rolePermission) => {
+          if (!acc[rolePermission.role_id]) {
+            acc[rolePermission.role_id] = [];
+          }
+          acc[rolePermission.role_id].push(rolePermission.slug!);
+          return acc;
+        },
+        {} as Record<string, string[]>
+      );
+
+      for (const [roleId, permissionSlugs] of Object.entries(
+        permissionSlugsByRoleId
+      )) {
+        await redis.sadd(`role_permission:${roleId}`, ...permissionSlugs);
+      }
+    }
   }
 
   async getCachedRoles({ take }: { take?: number }) {
-    const rolesList = await this.redis.get(
-      `${process.env.PROJECT_PREFIX}_roles`
-    );
-    let res = JSON.parse(rolesList ?? "[]") as RolesWithRelations[];
+    const redis = this.getRedis();
+    if (redis) {
+      let rolesList: InferSelectModel<typeof roles>[] = [];
+      let roleIds = await redis.lrange("roles", 0, take ?? -1);
+      for (const roleId of roleIds) {
+        const role = await redis.hgetall(`role:${roleId}`);
 
-    if (take && res.length > take) {
-      res = res.slice(0, take);
+        rolesList.push({
+          active: role.active === "true",
+          name: role.name,
+          code: role.code,
+          created_at: role.created_at,
+          updated_at: role.updated_at,
+          id: roleId,
+          created_by: role.created_by,
+          updated_by: role.updated_by,
+        });
+      }
+      return rolesList;
     }
-
-    return res;
   }
 
   async getPermissionsByRoleId(roleId: string) {
@@ -111,59 +159,43 @@ export class CacheControlService {
       return [];
     }
 
-    const roles = await this.getCachedRoles({});
-    // console.log("roles", roles);
-    const role = roles.find((role) => role.id === roleId);
-    if (!role) {
-      return [];
+    const redis = this.getRedis();
+    if (redis) {
+      const rolePermissions = await redis.smembers(`role_permission:${roleId}`);
+      return rolePermissions;
     }
-    return role.permissions;
   }
 
   async cacheSettings() {
-    const settingsList = await this.drizzle.query.settings.findMany({});
-    await this.redis.set(
-      `${process.env.PROJECT_PREFIX}settings`,
-      JSON.stringify(settingsList)
-    );
+    const redis = this.getRedis();
+    if (redis) {
+      const settingsList = await this.drizzle.query.settings.findMany({});
+      for (const setting of settingsList) {
+        await redis.hmset(`setting:${setting.id}`, setting);
+        await redis.rpush("settings", setting.id);
+      }
+    }
   }
 
   async getCachedSettings({ take }: { take?: number }) {
-    const settingsList = await this.redis.get(
-      `${process.env.PROJECT_PREFIX}settings`
-    );
-    let res = JSON.parse(settingsList ?? "[]") as InferSelectModel<
-      typeof settings
-    >[];
+    const redis = this.getRedis();
+    if (redis) {
+      let settingsList: InferSelectModel<typeof settings>[] = [];
+      let settingIds = await redis.lrange("settings", 0, take ?? -1);
+      for (const settingId of settingIds) {
+        const setting = await redis.hgetall(`setting:${settingId}`);
 
-    if (take && res.length > take) {
-      res = res.slice(0, take);
+        settingsList.push({
+          id: settingId,
+          key: setting.key,
+          value: setting.value,
+          is_secure: setting.is_secure === "true",
+          created_at: setting.created_at,
+          updated_at: setting.updated_at,
+        });
+      }
+      return settingsList;
     }
-
-    return res;
-  }
-
-  async cacheCredentials() {
-    const credentials = await this.drizzle.query.credentials.findMany();
-    await this.redis.set(
-      `${process.env.PROJECT_PREFIX}credentials`,
-      JSON.stringify(credentials)
-    );
-  }
-
-  async getCachedCredentials({ take }: { take?: number }) {
-    const credentialsList = await this.redis.get(
-      `${process.env.PROJECT_PREFIX}credentials`
-    );
-    let res = JSON.parse(credentialsList ?? "[]") as InferSelectModel<
-      typeof credentials
-    >[];
-
-    if (take && res.length > take) {
-      res = res.slice(0, take);
-    }
-
-    return res;
   }
 
   async cacheUserDataByToken(
@@ -182,16 +214,31 @@ export class CacheControlService {
       return null;
     }
 
-    const userRole = await userFirstRole.execute({ user_id: foundUser.id });
+    const redis = this.getRedis();
+    if (redis) {
+      const userRole = await userFirstRole.execute({ user_id: foundUser.id });
 
-    // getting rights
-    let permissions: string[] = [];
-    if (userRole) {
-      permissions = await this.getPermissionsByRoleId(userRole.role_id);
-    }
-    await this.redis.set(
-      `${process.env.PROJECT_PREFIX}user_data:${accessToken}`,
-      JSON.stringify({
+      // getting rights
+      let permissions: string[] = [];
+      if (userRole) {
+        permissions =
+          (await this.getPermissionsByRoleId(userRole.role_id)) ?? [];
+      }
+      await redis.set(
+        `user_data:${accessToken}`,
+        JSON.stringify({
+          user: foundUser,
+          accessToken,
+          refreshToken,
+          permissions: permissions,
+          role: {
+            id: userRole?.role_id,
+            code: userRole?.role?.code,
+          },
+        })
+      );
+
+      return {
         user: foundUser,
         accessToken,
         refreshToken,
@@ -200,26 +247,16 @@ export class CacheControlService {
           id: userRole?.role_id,
           code: userRole?.role?.code,
         },
-      })
-    );
-
-    return {
-      user: foundUser,
-      accessToken,
-      refreshToken,
-      permissions: permissions,
-      role: {
-        id: userRole?.role_id,
-        code: userRole?.role?.code,
-      },
-    };
+      };
+    }
   }
 
   async deleteUserDataByToken(accessToken: string) {
     try {
-      await this.redis.del(
-        `${process.env.PROJECT_PREFIX}user_data:${accessToken}`
-      );
+      const redis = this.getRedis();
+      if (redis) {
+        await redis.del(`user_data:${accessToken}`);
+      }
     } catch (e) {}
   }
 
@@ -234,11 +271,15 @@ export class CacheControlService {
       if (!jwtResult.payload.id) {
         return null;
       }
-      const data = await this.redis.get(
-        `${process.env.PROJECT_PREFIX}user_data:${accessToken}`
-      );
-      if (data) {
-        return JSON.parse(data);
+
+      const redis = this.getRedis();
+      if (redis) {
+        const userData = await redis.get(`user_data:${accessToken}`);
+        if (userData) {
+          return JSON.parse(userData);
+        } else {
+          return null;
+        }
       } else {
         return null;
       }
