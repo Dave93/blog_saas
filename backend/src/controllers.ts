@@ -4,7 +4,6 @@ import { usersController } from "./modules/users/controller";
 import { credentialsController } from "./modules/credentials/controller";
 import { organizationController } from "./modules/organization/controller";
 import { permissionsController } from "./modules/permissions/controller";
-import { reportsController } from "./modules/reports/controller";
 import { reportsItemsController } from "./modules/reports_items/controller";
 import { reportsStatusController } from "./modules/reports_status/controller";
 import { rolesController } from "./modules/roles/controller";
@@ -40,7 +39,6 @@ export const apiController = new Elysia({
   .use(credentialsController)
   .use(organizationController)
   .use(permissionsController)
-  .use(reportsController)
   .use(reportsItemsController)
   .use(reportsStatusController)
   .use(rolesController)
