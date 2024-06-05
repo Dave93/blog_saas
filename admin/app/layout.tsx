@@ -4,8 +4,6 @@ import React, { StrictMode } from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import MainLayout from "@admin/components/layout/main-layout";
-import SessionLocalProvider from "@admin/store/session-provider";
-import { NextUIProviders } from "@admin/components/layout/providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,9 +21,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <StrictMode>
-          <NextUIProviders>
-            <MainLayout>{children}</MainLayout>
-          </NextUIProviders>
+          <MainLayout>{children}</MainLayout>
         </StrictMode>
       </body>
     </html>
