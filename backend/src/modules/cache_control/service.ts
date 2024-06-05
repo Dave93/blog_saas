@@ -1,7 +1,6 @@
 import { DrizzleDB } from "@backend/lib/db";
 import { InferSelectModel, eq, getTableColumns } from "drizzle-orm";
 import {
-  credentials,
   permissions,
   roles,
   roles_permissions,
@@ -233,9 +232,9 @@ export class CacheControlService {
           accessToken,
           refreshToken,
           permissions: permissions,
-          role: {
-            id: userRole?.role_id,
-            code: userRole?.role?.code,
+          role: userRole && {
+            id: userRole.role_id!,
+            code: userRole.role.code!,
           },
         })
       );
@@ -245,9 +244,9 @@ export class CacheControlService {
         accessToken,
         refreshToken,
         permissions: permissions,
-        role: {
-          id: userRole?.role_id,
-          code: userRole?.role?.code,
+        role: userRole && {
+          id: userRole.role_id!,
+          code: userRole.role.code!,
         },
       };
     }
@@ -259,7 +258,7 @@ export class CacheControlService {
       if (redis) {
         await redis.del(`user_data:${accessToken}`);
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   async getCachedUserDataByToken(accessToken: string): Promise<{

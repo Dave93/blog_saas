@@ -24,9 +24,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <StrictMode>
           <NextUIProviders>
-            <SessionLocalProvider>
-              <MainLayout>{children}</MainLayout>
-            </SessionLocalProvider>
+            <MainLayout>{children}</MainLayout>
           </NextUIProviders>
         </StrictMode>
       </body>

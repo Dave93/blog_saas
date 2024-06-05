@@ -174,29 +174,12 @@ export const usersController = new Elysia({
         process.env.JWT_REFRESH_EXPIRES_IN
       );
 
-      const userRole = await userFirstRole.execute({ user_id: user.id });
-
-      // getting rights
-      let permissions: string[] = [];
-      if (userRole) {
-        permissions = await cacheController.getPermissionsByRoleId(
-          userRole.role_id
-        );
-      }
-
-      const resultUser = exclude(user, [
-        "password",
-        "salt",
-        // @ts-ignore
-        "users_roles_usersTousers_roles_user_id",
-      ]);
-
-      return {
-        data: resultUser,
-        refreshToken: refreshTokenNew,
+      const res = await cacheController.cacheUserDataByToken(
         accessToken,
-        rights: permissions,
-      };
+        refreshTokenNew,
+        user.id
+      );
+      return res;
     },
     {
       body: t.Object({
