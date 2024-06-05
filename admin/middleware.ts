@@ -1,19 +1,15 @@
-import { NextRequest } from "next/server"
-import authConfig from "./auth.config"
-import NextAuth from "next-auth"
+export { auth as middleware } from "./auth"
 
-// Use only one of the two middleware options below
-// 1. Use middleware directly
-// export const { auth: middleware } = NextAuth(authConfig)
+// Or like this if you need to do something here.
+// export default auth((req) => {
+//   console.log(req.auth) //  { session: { user: { ... } } }
+// })
 
-// 2. Wrapped middleware option
-const { auth } = NextAuth(authConfig)
-export default auth(async function middleware(req: NextRequest) {
-  // const token = req.
-  // if (!token) {
-  //   return NextResponse.redirect("/api/auth/signin")
-  // }
-})
+// Read more: https://nextjs.org/docs/app/building-your-application/routing/middleware#matcher
+export const config = {
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+}
+
 
 // import { withAuth } from "next-auth/middleware";
 // import { NextRequest, NextResponse } from "next/server";
