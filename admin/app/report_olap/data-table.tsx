@@ -50,7 +50,6 @@ import { InferSelectModel } from "drizzle-orm";
 import { Switch } from "@components/ui/switch";
 import { cn } from "@admin/lib/utils";
 import { he } from "date-fns/locale";
-import './style.css';
 
 interface DataTableProps<TData, TValue> {}
 
