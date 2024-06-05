@@ -14,6 +14,7 @@ import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueries } from "@tanstack/react-query";
 import { Select, SelectItem, SelectedItems } from "@nextui-org/select";
 import { Selection } from "@react-types/shared";
+import { Switch } from "@admin/components/ui/switch";
 
 export default function UsersForm({
   setOpen,
@@ -122,49 +123,10 @@ export default function UsersForm({
     onError,
   });
 
-  const assignStoreMutation = useMutation({
-    mutationFn: (newTodo: {
-      corporation_store_id: string[];
-      user_id: string;
-    }) => {
-      return apiClient.api.users_stores.assign_stores.post(
-        {
-          data: { ...newTodo },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-    },
-    onSuccess: (data) => closeForm(),
-    onError,
-  });
-
-  const assignTerminalMutation = useMutation({
-    mutationFn: (newTodo: { terminal_id: string[]; user_id: string }) => {
-      return apiClient.api.users.assign_terminal.post(
-        {
-          ...newTodo,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-    },
-    onError,
-  });
   const [
     { data: record, isLoading: isRecordLoading },
     { data: rolesData, isLoading: isRolesLoading },
     { data: userRolesData, isLoading: isUserRolesLoading },
-    { data: terminalsData, isLoading: isTerminalsLoading },
-    { data: userTerminalsData, isLoading: isUserTerminalsLoading },
-    { data: storesData, isLoading: isStoresLoading },
-    { data: userStoresData, isLoading: isUserStoresLoading },
   ] = useQueries({
     queries: [
       {
@@ -223,86 +185,6 @@ export default function UsersForm({
           }
         },
       },
-      {
-        enabled: !!token,
-        queryKey: ["terminals_cached"],
-        queryFn: async () => {
-          const { data } = await apiClient.api.terminals.cached.get({
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          return data;
-        },
-      },
-      {
-        enabled: !!recordId && !!token,
-        queryKey: ["users_terminals", recordId],
-        queryFn: async () => {
-          if (recordId) {
-            const { data } = await apiClient.api.users_terminals.get({
-              query: {
-                limit: "30",
-                offset: "0",
-                filters: JSON.stringify([
-                  {
-                    field: "user_id",
-                    operator: "=",
-                    value: recordId,
-                  },
-                ]),
-                fields: "terminal_id,user_id",
-              },
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
-            return data;
-          } else {
-            return null;
-          }
-        },
-      },
-      {
-        enabled: !!token,
-        queryKey: ["users_stores_cached"],
-        queryFn: async () => {
-          const { data } = await apiClient.api.users_stores.cached.get({
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          return data;
-        },
-      },
-      {
-        enabled: !!recordId && !!token,
-        queryKey: ["users_stores", recordId],
-        queryFn: async () => {
-          if (recordId) {
-            const { data } = await apiClient.api.users_stores.get({
-              query: {
-                limit: "30",
-                offset: "0",
-                filters: JSON.stringify([
-                  {
-                    field: "user_id",
-                    operator: "=",
-                    value: recordId,
-                  },
-                ]),
-                fields: "corporation_store_id,user_id",
-              },
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
-            return data;
-          } else {
-            return null;
-          }
-        },
-      },
     ],
   });
 
@@ -347,22 +229,7 @@ export default function UsersForm({
         user_id: userId,
         role_id: changedRoleId ? changedRoleId! : userRoleId!,
       });
-      assignTerminalMutation.mutate({
-        user_id: recordData?.id,
-        terminal_id:
-          changedTerminalId !== "all"
-            ? Array.from(changedTerminalId).map((terminalId) =>
-                terminalId.toString()
-              )
-            : [],
-      });
-      return assignStoreMutation.mutate({
-        user_id: recordData?.id,
-        corporation_store_id:
-          changedStoreId !== "all"
-            ? Array.from(changedStoreId).map((storeId) => storeId.toString())
-            : [],
-      });
+    
     },
     [changedRoleId, userRoleId, recordId, changedTerminalId, changedStoreId]
   );
@@ -372,64 +239,6 @@ export default function UsersForm({
       createMutation.isPending || updateMutation.isPending || isRolesLoading
     );
   }, [createMutation.isPending, updateMutation.isPending, isRolesLoading]);
-
-  const terminalsForSelect = useMemo(() => {
-    return terminalsData && Array.isArray(terminalsData)
-      ? terminalsData.map((item) => ({
-          value: item.id,
-          label: item.name,
-        }))
-      : [];
-  }, [terminalsData]);
-
-  const terminalLabelById = useMemo(() => {
-    return terminalsData && Array.isArray(terminalsData)
-      ? terminalsData.reduce((acc, item) => {
-          acc[item.id] = item.name;
-          return acc;
-        }, {} as { [key: string]: string })
-      : {};
-  }, [terminalsData]);
-
-  const storesForSelect = useMemo(() => {
-    return storesData && Array.isArray(storesData)
-      ? storesData.map((item) => ({
-          value: item.id,
-          label: item.name,
-        }))
-      : [];
-  }, [storesData]);
-
-  const storeLabelById = useMemo(() => {
-    return storesData && Array.isArray(storesData)
-      ? storesData.reduce((acc, item) => {
-          acc[item.id] = item.name!;
-          return acc;
-        }, {} as { [key: string]: string })
-      : {};
-  }, [storesData]);
-
-  useEffect(() => {
-    if (
-      userTerminalsData &&
-      userTerminalsData.data &&
-      Array.isArray(userTerminalsData.data)
-    ) {
-      setChangedTerminalId(
-        new Set(userTerminalsData.data.map((item) => item.terminal_id))
-      );
-    }
-
-    if (
-      userStoresData &&
-      userStoresData.data &&
-      Array.isArray(userStoresData.data)
-    ) {
-      setChangedStoreId(
-        new Set(userStoresData.data.map((item) => item.corporation_store_id!))
-      );
-    }
-  }, [userTerminalsData, userStoresData]);
 
   return (
     <form
@@ -445,34 +254,13 @@ export default function UsersForm({
         <div>
           <Label>Статус</Label>
         </div>
-        <form.Field name="status">
+        <form.Field name="active">
           {(field) => {
             return (
-              <>
-                <Select
-                  label="Статус"
-                  placeholder="Выберите статус"
-                  selectedKeys={[field.getValue()]}
-                  className=""
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                    field.setValue(
-                      // @ts-ignore
-                      e.target.value as "active" | "blocked" | "inactive"
-                    );
-                  }}
-                  popoverProps={{
-                    portalContainer: formRef.current!,
-                    offset: 0,
-                    containerPadding: 0,
-                  }}
-                >
-                  {["active", "blocked", "inactive"].map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
-                  ))}
-                </Select>
-              </>
+              <Switch
+              checked={field.getValue()}
+              onCheckedChange={(e)=> field.setValue(e)}
+              />
             );
           }}
         </form.Field>
@@ -523,38 +311,7 @@ export default function UsersForm({
           }}
         </form.Field>
       </div>
-      <div className="space-y-2 col-span-2">
-        <div>
-          <Label>Роль</Label>
-        </div>
-        <Select
-          label="Роль"
-          placeholder="Выберите роль"
-          selectedKeys={userRoleId ? [userRoleId] : []}
-          className=""
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-            // @ts-ignore
-            setChangedRoleId(e.target.value);
-          }}
-          popoverProps={{
-            portalContainer: formRef.current!,
-            offset: 0,
-            containerPadding: 0,
-          }}
-        >
-          {Array.isArray(rolesData) ? (
-            rolesData?.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.name}
-              </SelectItem>
-            ))
-          ) : (
-            <SelectItem key="0" value="0">
-              Загрузка...
-            </SelectItem>
-          )}
-        </Select>
-      </div>
+     
 
       <div className="space-y-2">
         <div>
@@ -602,7 +359,39 @@ export default function UsersForm({
           }}
         </form.Field>
       </div>
-      <div className="pt-4 ">
+      <div className="space-y-2 col-span-2">
+        <div>
+          <Label>Роль</Label>
+        </div>
+        <Select
+          label="Роль"
+          placeholder="Выберите роль"
+          selectedKeys={userRoleId ? [userRoleId] : []}
+          className=""
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+            // @ts-ignore
+            setChangedRoleId(e.target.value);
+          }}
+          popoverProps={{
+            portalContainer: formRef.current!,
+            offset: 0,
+            containerPadding: 0,
+          }}
+        >
+          {Array.isArray(rolesData) ? (
+            rolesData?.map((item) => (
+              <SelectItem key={item.id} value={item.id}>
+                {item.name}
+              </SelectItem>
+            ))
+          ) : (
+            <SelectItem key="0" value="0">
+              Загрузка...
+            </SelectItem>
+          )}
+        </Select>
+      </div>
+      <div className="pt-4">
         <Button type="submit" disabled={isLoading}>
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Submit
