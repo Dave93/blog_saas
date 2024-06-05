@@ -4,43 +4,13 @@ import {
   uuid,
   varchar,
   timestamp,
-  boolean,
-  numeric,
-  integer,
-  uniqueIndex,
-  text,
-  doublePrecision,
-  index,
-  time,
-  primaryKey,
+  boolean, uniqueIndex,
+  text, index, primaryKey
 } from "drizzle-orm/pg-core";
-import { relations, sql } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 
 export const user_status = pgEnum("user_status", ["active", "blocked"]);
 
-export const credentials = pgTable("credentials", {
-  id: uuid("id").defaultRandom().primaryKey().notNull(),
-  key: text("key").notNull(),
-  model: text("model").notNull(),
-  type: text("type").notNull(),
-  created_at: timestamp("created_at", {
-    precision: 5,
-    withTimezone: true,
-    mode: "string",
-  })
-    .defaultNow()
-    .notNull(),
-  updated_at: timestamp("updated_at", {
-    precision: 5,
-    withTimezone: true,
-    mode: "string",
-  })
-    .defaultNow()
-    .notNull(),
-  created_by: uuid("created_by"),
-  updated_by: uuid("updated_by"),
-  model_id: text("model_id").notNull(),
-});
 
 export const permissions = pgTable(
   "permissions",
@@ -110,27 +80,6 @@ export const roles = pgTable(
     };
   }
 );
-
-export const sessions = pgTable("sessions", {
-  id: uuid("id").defaultRandom().primaryKey().notNull(),
-  user_id: uuid("user_id").notNull(),
-  user_agent: text("user_agent").notNull(),
-  device_name: text("device_name").notNull(),
-  created_at: timestamp("created_at", {
-    precision: 5,
-    withTimezone: true,
-    mode: "string",
-  })
-    .defaultNow()
-    .notNull(),
-  updated_at: timestamp("updated_at", {
-    precision: 5,
-    withTimezone: true,
-    mode: "string",
-  })
-    .defaultNow()
-    .notNull(),
-});
 
 export const settings = pgTable(
   "settings",
