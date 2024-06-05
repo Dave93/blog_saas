@@ -163,6 +163,8 @@ export class CacheControlService {
     if (redis) {
       const rolePermissions = await redis.smembers(`role_permission:${roleId}`);
       return rolePermissions;
+    } else {
+      return [];
     }
   }
 
