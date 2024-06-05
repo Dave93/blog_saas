@@ -17,6 +17,12 @@ interface ExtendedUser extends InferSelectModel<typeof users> {
 }
 
 export default {
+    callbacks: {
+        authorized({ request, auth }) {
+            const { pathname } = request.nextUrl
+            return !!auth
+        },
+    },
     providers: [
         GitHub,
         Credentials({
