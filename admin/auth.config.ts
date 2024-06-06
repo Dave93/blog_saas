@@ -6,23 +6,63 @@ import { InferSelectModel } from "drizzle-orm";
 import Credentials from "next-auth/providers/credentials";
 import { apiClient } from "./utils/eden";
 
-interface ExtendedUser extends InferSelectModel<typeof users> {
-    accessToken: string;
-    refreshToken: string;
-    permissions: string[];
-    role: {
-        id: string;
-        code: string;
-    } | undefined;
-}
 
 export default {
+    debug: true,
+    basePath: "/api/auth",
     callbacks: {
         authorized({ request, auth }) {
-            const { pathname } = request.nextUrl
             return !!auth
         },
+        async session({ session, token }) {
+            console.log('auth.config session', session, token);
+            // if (typeof token !== "undefined") {
+            //     session = {
+            //         ...session,
+            //         ...token,
+            //     };
+            // }
+            return session;
+        },
+        async jwt({ token, user, account }) {
+            console.log('auth.config jwt', token, user, account);
+            // if (token && token.exp) {
+            //     const differenceInMinutes = dayjs
+            //         .unix(token!.exp!)
+            //         .diff(dayjs(), "minute");
+
+            //     if (differenceInMinutes < 30) {
+            //         // @ts-ignore
+            //         // const res = await trpcClient.users.refreshToken.mutate({
+            //         //   refreshToken: token.refreshToken as string,
+            //         // });
+            //         // if (typeof res !== "undefined") {
+            //         //   /** @ts-ignore */
+            //         //   token = {
+            //         //     ...token,
+            //         //     ...res.data,
+            //         //     accessToken: res.accessToken,
+            //         //     refreshToken: res.refreshToken,
+            //         //     rights: res.rights,
+            //         //   };
+            //         // }
+            //     }
+            // }
+
+            // if (typeof user !== "undefined") {
+            //     token = {
+            //         ...token,
+            //         ...user,
+            //         // accessToken: user.accessToken,
+            //         // refreshToken: user.refreshToken,
+            //         // rights: user.rights,
+            //         // token: user.token,
+            //     };
+            // }
+            return token;
+        },
     },
+    session: { strategy: "jwt", maxAge: 2 * 60 * 60 },
     providers: [
         GitHub,
         Credentials({
@@ -39,7 +79,6 @@ export default {
                             login: login!.toString(),
                             password: password!.toString(),
                         });
-                        console.log("res", res);
                         if (status == 200 && res && "accessToken" in res) {
                             return {
                                 ...res.user,
@@ -60,37 +99,6 @@ export default {
                     return null;
                 }
             },
-        }),]
+        }),
+    ]
 } satisfies NextAuthConfig
-
-
-
-declare module "next-auth" {
-    interface User extends ExtendedUser { }
-    interface Session {
-        user: User;
-        permissions: string[];
-        accessToken: string;
-        refreshToken: string;
-        role: {
-            id: string;
-            code: string;
-        };
-    }
-}
-
-declare module "next-auth/jwt" {
-    interface User extends ExtendedUser { }
-    interface JWT {
-        user: User;
-        permissions: string[];
-        accessToken: string;
-        refreshToken: string;
-        role: {
-            id: string;
-            code: string;
-        };
-        exp: number;
-        iat: number;
-    }
-}
