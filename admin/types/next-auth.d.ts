@@ -1,15 +1,25 @@
 import NextAuth, { DefaultSession } from "next-auth";
 import { InferSelectModel } from "drizzle-orm";
 import { users } from "@backend/../drizzle/schema";
-
+import { DefaultJWT } from "@auth/core/jwt";
+interface ExtendedUser extends InferSelectModel<typeof users> {
+  accessToken: string;
+  refreshToken: string;
+  permissions: string[];
+  role: {
+    id: string;
+    code: string;
+  } | undefined;
+}
 declare module "next-auth" {
   /**
    * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React Context
    */
-  interface Session extends InferSelectModel<typeof users> {
-    user: InferSelectModel<typeof users>;
-    rights: string[];
-    accessToken: string;
+  interface User extends ExtendedUser { }
+  interface Session {
+    user: User;
+    permissions: string[];
+    accessToken: string & DefaultSession;
     refreshToken: string;
     role: {
       id: string;
@@ -20,10 +30,11 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   /** Returned by the `jwt` callback and `getToken`, when using JWT sessions */
-  interface JWT extends InferSelectModel<typeof users> {
-    user: InferSelectModel<typeof users>;
-    rights: string[];
-    accessToken: string;
+  interface User extends ExtendedUser { }
+  interface JWT {
+    user: User;
+    permissions: string[];
+    accessToken: string & DefaultJWT;
     refreshToken: string;
     role: {
       id: string;

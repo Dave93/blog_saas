@@ -7,7 +7,7 @@ export async function Providers({ children }: { children: React.ReactNode }) {
   const session = await auth();
 
   return (
-    <SessionProvider basePath={"/auth"} session={session}>
+    <SessionProvider session={session}>
       <ReactQueryProvider>{children}</ReactQueryProvider>
     </SessionProvider>
   );
