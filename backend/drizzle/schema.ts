@@ -4,13 +4,13 @@ import {
   uuid,
   varchar,
   timestamp,
-  boolean, uniqueIndex,
-  text, index, primaryKey
+  boolean,
+  uniqueIndex,
+  text,
+  index,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-
-export const user_status = pgEnum("user_status", ["active", "blocked"]);
-
 
 export const permissions = pgTable(
   "permissions",
@@ -116,23 +116,17 @@ export const users = pgTable(
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     active: boolean("active").default(true).notNull(),
     phone: varchar("phone", { length: 20 }),
-    email: varchar("email", { length: 100 }),
-    login: varchar("login", { length: 100 }).notNull(),
+    email: varchar("email", { length: 100 }).notNull(),
+    login: varchar("login", { length: 100 }),
     first_name: varchar("first_name", { length: 100 }),
     last_name: varchar("last_name", { length: 100 }),
     password: varchar("password").notNull(),
     salt: varchar("salt"),
-    is_super_user: boolean("is_super_user").default(false).notNull(),
-    status: user_status("status").notNull(),
     birth_date: timestamp("birth_date", {
       precision: 5,
       withTimezone: true,
       mode: "string",
     }),
-    is_online: boolean("is_online").default(false).notNull(),
-    fcm_token: varchar("fcm_token", { length: 250 }),
-    doc_files: text("doc_files").array(),
-    app_version: varchar("app_version", { length: 100 }),
     created_at: timestamp("created_at", {
       precision: 5,
       withTimezone: true,
@@ -147,8 +141,6 @@ export const users = pgTable(
     })
       .defaultNow()
       .notNull(),
-    api_token: varchar("api_token", { length: 250 }),
-    tg_id: varchar("tg_id", { length: 250 }),
   },
   (table) => {
     return {
