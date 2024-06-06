@@ -245,17 +245,8 @@ export const usersController = new Elysia({
         };
       }
       let res: {
-        [key: string]: UsersModel & {
-          work_schedules: {
-            id: string;
-            user_id: string;
-            work_schedule_id: string;
-            start_time: string;
-            end_time: string;
-            day: string;
-          }[];
-        };
-      } = {};
+        [key: string]: UsersModel;
+      };
       let selectFields: SelectedFields = {};
       if (fields) {
         fields = fields
