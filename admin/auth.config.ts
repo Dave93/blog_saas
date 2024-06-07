@@ -1,4 +1,5 @@
 import GitHub from "next-auth/providers/github"
+import Google from "next-auth/providers/google"
 import type { NextAuthConfig } from "next-auth"
 import { JWT } from "next-auth/jwt"
 import { users } from "backend/drizzle/schema";
@@ -24,8 +25,8 @@ export default {
             // }
             return session;
         },
-        async jwt({ token, user, account }) {
-            console.log('auth.config jwt', token, user, account);
+        async jwt({ token, user, account, session }) {
+            console.log('auth.config jwt', token, user, account, session);
             // if (token && token.exp) {
             //     const differenceInMinutes = dayjs
             //         .unix(token!.exp!)
@@ -62,9 +63,65 @@ export default {
             return token;
         },
     },
-    session: { strategy: "jwt", maxAge: 2 * 60 * 60 },
+    session: { strategy: "jwt" },
     providers: [
-        GitHub,
+        GitHub({
+
+            profile: async (_profile, tokens) => {
+                const {
+                    data,
+                    status,
+                    error
+                } = await apiClient.api.users.oauth.post({
+                    data: {
+                        provider: 'github',
+                        accessToken: tokens.access_token,
+                        tokenType: tokens.token_type,
+                        scope: tokens.scope
+                    }
+                });
+                if (status == 200 && data && "accessToken" in data) {
+                    return {
+                        ...data.user,
+                        accessToken: data.accessToken,
+                        refreshToken: data.refreshToken,
+                        permissions: data.permissions,
+                        role: data.role,
+                    }
+                } else {
+                    return null;
+                }
+            }
+        }),
+        Google({
+            profile: async (_profile, tokens) => {
+                console.log('profile', _profile);
+                console.log('tokens', tokens);
+                const {
+                    data,
+                    status,
+                    error
+                } = await apiClient.api.users.oauth.post({
+                    data: {
+                        provider: 'google',
+                        accessToken: tokens.access_token,
+                        tokenType: tokens.token_type,
+                        scope: tokens.scope
+                    }
+                });
+                if (status == 200 && data && "accessToken" in data) {
+                    return {
+                        ...data.user,
+                        accessToken: data.accessToken,
+                        refreshToken: data.refreshToken,
+                        permissions: data.permissions,
+                        role: data.role,
+                    }
+                } else {
+                    return null;
+                }
+            }
+        }),
         Credentials({
             name: "Credentials",
             credentials: {
@@ -79,6 +136,7 @@ export default {
                             login: login!.toString(),
                             password: password!.toString(),
                         });
+                        console.log('res', res);
                         if (status == 200 && res && "accessToken" in res) {
                             return {
                                 ...res.user,
