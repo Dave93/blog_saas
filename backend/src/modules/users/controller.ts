@@ -1,5 +1,5 @@
 import Elysia, { error, t } from "elysia";
-import { users, users_roles } from "@backend/../drizzle/schema";
+import { oauth_users, users, users_roles } from "@backend/../drizzle/schema";
 import { createHash, createHmac } from "crypto";
 import {
   InferSelectModel,
@@ -7,6 +7,7 @@ import {
   and,
   eq,
   getTableColumns,
+  or,
   sql,
 } from "drizzle-orm";
 import {
@@ -20,7 +21,6 @@ import { SelectedFields } from "drizzle-orm/pg-core";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { createInsertSchema } from "drizzle-typebox";
-import { drizzleDb } from "@backend/lib/db";
 import { ctx } from "@backend/context";
 import {
   userById,
@@ -28,6 +28,10 @@ import {
   userFirstRole,
   userPasswordByLogin,
 } from "@backend/lib/prepare_statements";
+import { getGithubUserData } from "./oauth/oauth_providers";
+import { getGoogleUserData } from "./oauth/oauth_google";
+import { GithubOauthUserData } from "./oauth/dtos/github";
+import { GoogleOauthUserData } from "./oauth/dtos/google";
 
 type UsersModel = InferSelectModel<typeof users>;
 
@@ -78,7 +82,7 @@ export const usersController = new Elysia({
         };
       }
 
-      if (user.status == "blocked") {
+      if (!user.active) {
         set.status = 401;
         return {
           message: "User is blocked",
@@ -103,7 +107,6 @@ export const usersController = new Elysia({
         },
         process.env.JWT_REFRESH_EXPIRES_IN
       );
-
       const res = await cacheController.cacheUserDataByToken(
         accessToken,
         refreshToken,
@@ -147,7 +150,7 @@ export const usersController = new Elysia({
         };
       }
 
-      if (user.status == "blocked") {
+      if (!user.active) {
         set.status = 401;
         return {
           message: "User is blocked",
@@ -244,9 +247,9 @@ export const usersController = new Elysia({
           message: "You don't have permissions",
         };
       }
-      let res: {
+      const result: {
         [key: string]: UsersModel;
-      };
+      } = {};
       let selectFields: SelectedFields = {};
       if (fields) {
         fields = fields
@@ -275,32 +278,20 @@ export const usersController = new Elysia({
         .offset(+offset)
         .as("users");
 
-      // @ts-ignore
-      const usersList: UsersModel[] = await drizzle
+      const usersList = await drizzle
         .select(selectFields)
         .from(usersDbSelect)
-        .execute();
-      console.log(
-        "sql",
-        drizzle.select(selectFields).from(usersDbSelect).toSQL().sql
-      );
+        .execute() as UsersModel[];
+
       usersList.forEach((user) => {
-        if (!res[user.id]) {
-          res[user.id] = {
-            ...user,
-            work_schedules: [],
-          };
-        }
-        // @ts-ignore
-        if (user.work_schedules) {
-          // @ts-ignore
-          res[user.id].work_schedules.push(user.work_schedules);
+        if (!result[user.id]) {
+          result[user.id] = user;
         }
       });
 
       return {
         total: usersCount[0].count,
-        data: Object.values(res),
+        data: Object.values(result),
       };
     },
     {
@@ -360,6 +351,132 @@ export const usersController = new Elysia({
       }),
     }
   )
+  .post('/users/oauth', async ({ body: { data }, user, set, drizzle, cacheController }) => {
+    let userData: GoogleOauthUserData | GithubOauthUserData | null = null;
+    switch (data.provider) {
+      case 'github':
+        if (!data.accessToken) {
+          set.status = 401;
+          return {
+            message: 'Access token is required'
+          };
+        }
+        userData = await getGithubUserData(data.accessToken);
+        console.log(JSON.stringify(userData));
+        break;
+      case 'google':
+        if (!data.accessToken) {
+          set.status = 401;
+          return {
+            message: 'Access token is required'
+          };
+        }
+        userData = await getGoogleUserData(data.accessToken);
+        console.log(JSON.stringify(userData));
+        break;
+
+    }
+    console.log('userData', userData);
+    if (!userData) {
+      set.status = 401;
+      return {
+        message: 'User not found'
+      };
+    } else {
+      const providerUser = await drizzle
+        .select()
+        .from(oauth_users)
+        .where(
+          and(
+            eq(oauth_users.provider, data.provider),
+            or(
+              userData.login ? eq(oauth_users.login, userData.login) : undefined,
+              userData.email ? eq(oauth_users.email, userData.email) : undefined
+            ),
+            eq(oauth_users.provider_user_id, userData.id!)
+          )
+        )
+        .execute();
+      let currentUser: {
+        id: string;
+        login: string | null;
+        first_name: string | null;
+        last_name: string | null;
+      } | null = null;
+      if (providerUser.length) {
+        const existingUser = await drizzle.select({
+          id: users.id,
+          login: users.login,
+          first_name: users.first_name,
+          last_name: users.last_name,
+        })
+          .from(users)
+          .where(eq(users.id, providerUser[0].user_id!))
+          .execute();
+        currentUser = existingUser[0];
+      } else {
+        const newUser = await drizzle.insert(users).values({
+          login: userData.login,
+          first_name: userData.name ?? userData.login,
+          avatar: userData.avatar_url,
+          created_at: new Date().toISOString(),
+        }).returning({
+          id: users.id,
+          login: users.login,
+          first_name: users.first_name,
+          last_name: users.last_name,
+        }).execute();
+        currentUser = newUser[0];
+        await drizzle.insert(oauth_users).values({
+          user_id: currentUser.id,
+          provider: data.provider,
+          provider_user_id: currentUser.id,
+          login: userData.login,
+          email: userData.email,
+          created_at: new Date().toISOString(),
+        }).execute();
+      }
+
+      const accessToken = await signJwt(
+        {
+          id: currentUser.id,
+          login: currentUser.login,
+          first_name: currentUser.first_name,
+          last_name: currentUser.last_name,
+        },
+        process.env.JWT_EXPIRES_IN
+      );
+
+      const refreshToken = await signJwt(
+        {
+          id: currentUser.id,
+          login: currentUser.login,
+          first_name: currentUser.first_name,
+          last_name: currentUser.last_name,
+        },
+        process.env.JWT_REFRESH_EXPIRES_IN
+      );
+      const res = await cacheController.cacheUserDataByToken(
+        accessToken,
+        refreshToken,
+        currentUser.id
+      );
+      return res;
+    }
+
+    return {
+
+    };
+  }, {
+    body: t.Object({
+      data: t.Object({
+        provider: t.String(),
+        accessToken: t.Optional(t.String()),
+        tokenType: t.Optional(t.String()),
+        scope: t.Optional(t.String()),
+      })
+    })
+  })
   .post(
     "/users",
     async ({ body: { data, fields }, user, set, drizzle }) => {
