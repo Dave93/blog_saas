@@ -12,6 +12,39 @@ export default {
     debug: true,
     basePath: "/api/auth",
     callbacks: {
+        signIn: async ({
+            user,
+            account,
+        }) => {
+            if (account?.type === 'oauth') {
+                const {
+                    data,
+                    status,
+                    error
+                } = await apiClient.api.users.oauth.post({
+                    data: {
+                        provider: account.provider,
+                        accessToken: account.access_token,
+                        tokenType: account.token_type,
+                        scope: account.scope
+                    }
+                });
+                if (status == 200 && data && "accessToken" in data) {
+                    user = {
+                        ...user,
+                        ...data.user,
+                        accessToken: data.accessToken,
+                        refreshToken: data.refreshToken,
+                        permissions: data.permissions,
+                        role: data.role,
+                    }
+                } else {
+                    return false;
+                }
+                return true;
+            }
+            return true;
+        },
         authorized({ request, auth }) {
             return !!auth
         },
@@ -65,63 +98,8 @@ export default {
     },
     session: { strategy: "jwt" },
     providers: [
-        GitHub({
-
-            profile: async (_profile, tokens) => {
-                const {
-                    data,
-                    status,
-                    error
-                } = await apiClient.api.users.oauth.post({
-                    data: {
-                        provider: 'github',
-                        accessToken: tokens.access_token,
-                        tokenType: tokens.token_type,
-                        scope: tokens.scope
-                    }
-                });
-                if (status == 200 && data && "accessToken" in data) {
-                    return {
-                        ...data.user,
-                        accessToken: data.accessToken,
-                        refreshToken: data.refreshToken,
-                        permissions: data.permissions,
-                        role: data.role,
-                    }
-                } else {
-                    return null;
-                }
-            }
-        }),
-        Google({
-            profile: async (_profile, tokens) => {
-                console.log('profile', _profile);
-                console.log('tokens', tokens);
-                const {
-                    data,
-                    status,
-                    error
-                } = await apiClient.api.users.oauth.post({
-                    data: {
-                        provider: 'google',
-                        accessToken: tokens.access_token,
-                        tokenType: tokens.token_type,
-                        scope: tokens.scope
-                    }
-                });
-                if (status == 200 && data && "accessToken" in data) {
-                    return {
-                        ...data.user,
-                        accessToken: data.accessToken,
-                        refreshToken: data.refreshToken,
-                        permissions: data.permissions,
-                        role: data.role,
-                    }
-                } else {
-                    return null;
-                }
-            }
-        }),
+        GitHub,
+        Google,
         Credentials({
             name: "Credentials",
             credentials: {
