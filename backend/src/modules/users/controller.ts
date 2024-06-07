@@ -69,6 +69,13 @@ export const usersController = new Elysia({
 
       const userPasswords = await userPasswordByLogin.execute({ login });
 
+      if (!userPasswords!.password) {
+        set.status = 401;
+        return {
+          message: "This type of authentication is not supported",
+        };
+      }
+
       const isPasswordSame = await comparePassword(
         password,
         userPasswords!.salt!,
@@ -362,7 +369,6 @@ export const usersController = new Elysia({
           };
         }
         userData = await getGithubUserData(data.accessToken);
-        console.log(JSON.stringify(userData));
         break;
       case 'google':
         if (!data.accessToken) {
@@ -372,11 +378,9 @@ export const usersController = new Elysia({
           };
         }
         userData = await getGoogleUserData(data.accessToken);
-        console.log(JSON.stringify(userData));
         break;
 
     }
-    console.log('userData', userData);
     if (!userData) {
       set.status = 401;
       return {
@@ -393,7 +397,7 @@ export const usersController = new Elysia({
               userData.login ? eq(oauth_users.login, userData.login) : undefined,
               userData.email ? eq(oauth_users.email, userData.email) : undefined
             ),
-            eq(oauth_users.provider_user_id, userData.id!)
+            eq(oauth_users.provider_user_id, userData.id!.toString())
           )
         )
         .execute();
@@ -415,22 +419,38 @@ export const usersController = new Elysia({
           .execute();
         currentUser = existingUser[0];
       } else {
-        const newUser = await drizzle.insert(users).values({
-          login: userData.login,
-          first_name: userData.name ?? userData.login,
-          avatar: userData.avatar_url,
-          created_at: new Date().toISOString(),
-        }).returning({
+
+        const existingUser = await drizzle.select({
           id: users.id,
           login: users.login,
           first_name: users.first_name,
           last_name: users.last_name,
-        }).execute();
-        currentUser = newUser[0];
+        })
+          .from(users)
+          .where(eq(users.email, userData.email))
+          .execute();
+        if (existingUser.length) {
+          currentUser = existingUser[0];
+        } else {
+
+          const newUser = await drizzle.insert(users).values({
+            email: userData.email,
+            login: userData.login,
+            first_name: userData.name ?? userData.login,
+            avatar: userData.avatar_url,
+            created_at: new Date().toISOString(),
+          }).returning({
+            id: users.id,
+            login: users.login,
+            first_name: users.first_name,
+            last_name: users.last_name,
+          }).execute();
+          currentUser = newUser[0];
+        }
         await drizzle.insert(oauth_users).values({
           user_id: currentUser.id,
           provider: data.provider,
-          provider_user_id: currentUser.id,
+          provider_user_id: userData.id.toString(),
           login: userData.login,
           email: userData.email,
           created_at: new Date().toISOString(),

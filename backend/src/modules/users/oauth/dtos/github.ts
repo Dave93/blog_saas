@@ -38,3 +38,10 @@ export interface GithubOauthUserData {
     collaborators: number
     two_factor_authentication: boolean
 }
+
+export interface GithubUserEmailData {
+    email: string;
+    primary: boolean;
+    verified: boolean;
+    visibility: string;
+}
