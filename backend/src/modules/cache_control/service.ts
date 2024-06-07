@@ -27,9 +27,10 @@ export class CacheControlService {
 
   async initRedis() {
     if (process.env.REDIS_URL) {
-      console.log("REDIS_URL", process.env.REDIS_URL);
       this.redis = new Redis(process.env.REDIS_URL);
     } else if (process.env.REDIS_LOCAL_HOST && process.env.REDIS_LOCAL_PORT) {
+      console.log("REDIS_LOCAL_HOST", process.env.REDIS_LOCAL_HOST);
+      console.log("REDIS_LOCAL_PORT", process.env.REDIS_LOCAL_PORT);
       this.redis = new Redis({
         host: process.env.REDIS_LOCAL_HOST,
         port: +process.env.REDIS_LOCAL_PORT,
@@ -211,7 +212,7 @@ export class CacheControlService {
       return null;
     }
 
-    if (foundUser.status != "active") {
+    if (!foundUser) {
       return null;
     }
 

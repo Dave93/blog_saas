@@ -116,17 +116,12 @@ export const users = pgTable(
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     active: boolean("active").default(true).notNull(),
     phone: varchar("phone", { length: 20 }),
-    email: varchar("email", { length: 100 }).notNull(),
+    email: varchar("email", { length: 100 }),
     login: varchar("login", { length: 100 }),
     first_name: varchar("first_name", { length: 100 }),
     last_name: varchar("last_name", { length: 100 }),
-    password: varchar("password").notNull(),
+    password: varchar("password"),
     salt: varchar("salt"),
-    birth_date: timestamp("birth_date", {
-      precision: 5,
-      withTimezone: true,
-      mode: "string",
-    }),
     created_at: timestamp("created_at", {
       precision: 5,
       withTimezone: true,
@@ -141,6 +136,7 @@ export const users = pgTable(
     })
       .defaultNow()
       .notNull(),
+    avatar: varchar("avatar", { length: 250 }),
   },
   (table) => {
     return {
@@ -209,6 +205,32 @@ export const users_roles = pgTable(
         name: "PK_c525e9373d63035b9919e578a9c",
       }),
     };
+  }
+);
+
+export const oauth_users = pgTable(
+  "oauth_users",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    user_id: uuid("user_id"),
+    provider: varchar("provider", { length: 255 }),
+    provider_user_id: varchar("provider_user_id", { length: 255 }),
+    login: varchar("login", { length: 255 }),
+    email: varchar("email", { length: 255 }),
+    created_at: timestamp("created_at", {
+      precision: 5,
+      withTimezone: true,
+      mode: "string",
+    })
+      .defaultNow()
+      .notNull(),
+    updated_at: timestamp("updated_at", {
+      precision: 5,
+      withTimezone: true,
+      mode: "string",
+    })
+      .defaultNow()
+      .notNull(),
   }
 );
 
