@@ -1,11 +1,60 @@
 import GitHub from "next-auth/providers/github"
 import Google from "next-auth/providers/google"
-import type { NextAuthConfig } from "next-auth"
+import { AuthError, type NextAuthConfig } from "next-auth"
 import { JWT } from "next-auth/jwt"
 import { users } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import Credentials from "next-auth/providers/credentials";
 import { apiClient } from "./utils/eden";
+import type { Provider } from "next-auth/providers"
+
+const providers: Provider[] = [
+    GitHub,
+    Google,
+    Credentials({
+        name: "credentials",
+        credentials: {
+            login: { label: "Login", type: "text" },
+            password: { label: "Password", type: "password" },
+        },
+        authorize: async (credentials) => {
+            if (typeof credentials !== "undefined") {
+                const { login, password } = credentials;
+                try {
+                    const { data: res, status, error } = await apiClient.api.users.login.post({
+                        login: login!.toString(),
+                        password: password!.toString(),
+                    });
+                    console.log('res', res);
+                    console.log('status', status);
+                    if (status == 200 && res && "accessToken" in res) {
+                        return {
+                            ...res.user,
+                            accessToken: res.accessToken,
+                            refreshToken: res.refreshToken,
+                            permissions: res.permissions,
+                            role: res.role,
+                        };
+                    } else if (status == 401) {
+                        throw new AuthError("Неверный логин или пароль");
+                    } else {
+                        throw new AuthError("Неверный логин или пароль");
+                    }
+                } catch (error) {
+                    return null;
+                }
+            } else {
+                return null;
+            }
+        },
+    }),
+];
+
+
+export const providerMap = providers.find(provider => {
+    const providerData = typeof provider === "function" ? provider() : provider;
+    return providerData.type == 'credentials';
+})
 
 
 export default {
@@ -97,44 +146,5 @@ export default {
         },
     },
     session: { strategy: "jwt" },
-    providers: [
-        GitHub,
-        Google,
-        Credentials({
-            name: "Credentials",
-            credentials: {
-                login: { label: "Login", type: "text" },
-                password: { label: "Password", type: "password" },
-            },
-            authorize: async (credentials) => {
-                if (typeof credentials !== "undefined") {
-                    const { login, password } = credentials;
-                    try {
-                        const { data: res, status } = await apiClient.api.users.login.post({
-                            login: login!.toString(),
-                            password: password!.toString(),
-                        });
-                        console.log('res', res);
-                        if (status == 200 && res && "accessToken" in res) {
-                            return {
-                                ...res.user,
-                                accessToken: res.accessToken,
-                                refreshToken: res.refreshToken,
-                                permissions: res.permissions,
-                                role: res.role,
-                            };
-                        } else if (status == 401) {
-                            throw new Error("Неверный логин или пароль");
-                        } else {
-                            return null;
-                        }
-                    } catch (error) {
-                        return null;
-                    }
-                } else {
-                    return null;
-                }
-            },
-        }),
-    ]
+    providers
 } satisfies NextAuthConfig
