@@ -10,29 +10,37 @@ import { InferSelectModel } from "drizzle-orm";
 
 export const usersColumns: ColumnDef<InferSelectModel<typeof users>>[] = [
   {
-    accessorKey: "status",
-    header: "Статус",
+    accessorKey: "active",
+    header: "Status",
     cell: ({ row }) => {
       const record = row.original;
 
       return (
-        <Badge variant={record.status === "active" ? "success" : "destructive"}>
-          {record.status}
+        <Badge variant={record.active === true ? "success" : "destructive"}>
+          {record.active === true ? "Active" : "Inactive"}
         </Badge>
       );
     },
   },
   {
     accessorKey: "login",
-    header: "Логин",
+    header: "Login",
   },
   {
     accessorKey: "first_name",
-    header: "Имя",
+    header: "Name",
   },
   {
     accessorKey: "last_name",
-    header: "Фамилия",
+    header: "Last name",
+  },
+  {
+    accessorKey: "email",
+    header: "Email",
+  },
+  {
+    accessorKey: "phone",
+    header: "Phone",
   },
   {
     id: "actions",

@@ -55,8 +55,8 @@ export const usersController = new Elysia({
   .use(ctx)
   .post(
     "/users/login",
-    async ({ body: { login, password }, set, cacheController }) => {
-      const user = (await userByLogin.execute({ login })) as InferSelectModel<
+    async ({ body: { email, password }, set, cacheController }) => {
+      const user = (await userByLogin.execute({ email })) as InferSelectModel<
         typeof users
       >;
 
@@ -67,7 +67,7 @@ export const usersController = new Elysia({
         };
       }
 
-      const userPasswords = await userPasswordByLogin.execute({ login });
+      const userPasswords = await userPasswordByLogin.execute({ email });
 
       if (!userPasswords!.password) {
         set.status = 401;
@@ -98,7 +98,7 @@ export const usersController = new Elysia({
       const accessToken = await signJwt(
         {
           id: user.id,
-          login: user.login,
+          email: user.email,
           first_name: user.first_name,
           last_name: user.last_name,
         },
@@ -108,7 +108,7 @@ export const usersController = new Elysia({
       const refreshToken = await signJwt(
         {
           id: user.id,
-          login: user.login,
+          email: user.email,
           first_name: user.first_name,
           last_name: user.last_name,
         },
@@ -123,7 +123,7 @@ export const usersController = new Elysia({
     },
     {
       body: t.Object({
-        login: t.String(),
+        email: t.String(),
         password: t.String(),
       }),
     }
@@ -167,7 +167,7 @@ export const usersController = new Elysia({
       const accessToken = await signJwt(
         {
           id: user.id,
-          login: user.login,
+          email: user.email,
           first_name: user.first_name,
           last_name: user.last_name,
         },
@@ -177,7 +177,7 @@ export const usersController = new Elysia({
       const refreshTokenNew = await signJwt(
         {
           id: user.id,
-          login: user.login,
+          email: user.email,
           first_name: user.first_name,
           last_name: user.last_name,
         },
@@ -285,10 +285,10 @@ export const usersController = new Elysia({
         .offset(+offset)
         .as("users");
 
-      const usersList = await drizzle
+      const usersList = (await drizzle
         .select(selectFields)
         .from(usersDbSelect)
-        .execute() as UsersModel[];
+        .execute()) as UsersModel[];
 
       usersList.forEach((user) => {
         if (!result[user.id]) {
@@ -358,145 +358,155 @@ export const usersController = new Elysia({
       }),
     }
   )
-  .post('/users/oauth', async ({ body: { data }, user, set, drizzle, cacheController }) => {
-    let userData: GoogleOauthUserData | GithubOauthUserData | null = null;
-    switch (data.provider) {
-      case 'github':
-        if (!data.accessToken) {
-          set.status = 401;
-          return {
-            message: 'Access token is required'
-          };
-        }
-        userData = await getGithubUserData(data.accessToken);
-        break;
-      case 'google':
-        if (!data.accessToken) {
-          set.status = 401;
-          return {
-            message: 'Access token is required'
-          };
-        }
-        userData = await getGoogleUserData(data.accessToken);
-        break;
-
-    }
-    if (!userData) {
-      set.status = 401;
-      return {
-        message: 'User not found'
-      };
-    } else {
-      const providerUser = await drizzle
-        .select()
-        .from(oauth_users)
-        .where(
-          and(
-            eq(oauth_users.provider, data.provider),
-            or(
-              userData.login ? eq(oauth_users.login, userData.login) : undefined,
-              userData.email ? eq(oauth_users.email, userData.email) : undefined
-            ),
-            eq(oauth_users.provider_user_id, userData.id!.toString())
-          )
-        )
-        .execute();
-      let currentUser: {
-        id: string;
-        login: string | null;
-        first_name: string | null;
-        last_name: string | null;
-      } | null = null;
-      if (providerUser.length) {
-        const existingUser = await drizzle.select({
-          id: users.id,
-          login: users.login,
-          first_name: users.first_name,
-          last_name: users.last_name,
-        })
-          .from(users)
-          .where(eq(users.id, providerUser[0].user_id!))
-          .execute();
-        currentUser = existingUser[0];
+  .post(
+    "/users/oauth",
+    async ({ body: { data }, user, set, drizzle, cacheController }) => {
+      let userData: GoogleOauthUserData | GithubOauthUserData | null = null;
+      switch (data.provider) {
+        case "github":
+          if (!data.accessToken) {
+            set.status = 401;
+            return {
+              message: "Access token is required",
+            };
+          }
+          userData = await getGithubUserData(data.accessToken);
+          break;
+        case "google":
+          if (!data.accessToken) {
+            set.status = 401;
+            return {
+              message: "Access token is required",
+            };
+          }
+          userData = await getGoogleUserData(data.accessToken);
+          break;
+      }
+      if (!userData) {
+        set.status = 401;
+        return {
+          message: "User not found",
+        };
       } else {
-
-        const existingUser = await drizzle.select({
-          id: users.id,
-          login: users.login,
-          first_name: users.first_name,
-          last_name: users.last_name,
-        })
-          .from(users)
-          .where(eq(users.email, userData.email))
+        const providerUser = await drizzle
+          .select()
+          .from(oauth_users)
+          .where(
+            and(
+              eq(oauth_users.provider, data.provider),
+              or(
+                userData.login
+                  ? eq(oauth_users.login, userData.login)
+                  : undefined,
+                userData.email
+                  ? eq(oauth_users.email, userData.email)
+                  : undefined
+              ),
+              eq(oauth_users.provider_user_id, userData.id!.toString())
+            )
+          )
           .execute();
-        if (existingUser.length) {
+        let currentUser: {
+          id: string;
+          email: string | null;
+          first_name: string | null;
+          last_name: string | null;
+        } | null = null;
+        if (providerUser.length) {
+          const existingUser = await drizzle
+            .select({
+              id: users.id,
+              email: users.email,
+              first_name: users.first_name,
+              last_name: users.last_name,
+            })
+            .from(users)
+            .where(eq(users.id, providerUser[0].user_id!))
+            .execute();
           currentUser = existingUser[0];
         } else {
-
-          const newUser = await drizzle.insert(users).values({
-            email: userData.email,
-            login: userData.login,
-            first_name: userData.name ?? userData.login,
-            avatar: userData.avatar_url,
-            created_at: new Date().toISOString(),
-          }).returning({
-            id: users.id,
-            login: users.login,
-            first_name: users.first_name,
-            last_name: users.last_name,
-          }).execute();
-          currentUser = newUser[0];
+          const existingUser = await drizzle
+            .select({
+              id: users.id,
+              email: users.email,
+              first_name: users.first_name,
+              last_name: users.last_name,
+            })
+            .from(users)
+            .where(eq(users.email, userData.email))
+            .execute();
+          if (existingUser.length) {
+            currentUser = existingUser[0];
+          } else {
+            const newUser = await drizzle
+              .insert(users)
+              .values({
+                email: userData.email,
+                first_name: userData.name ?? userData.login,
+                avatar: userData.avatar_url,
+                created_at: new Date().toISOString(),
+              })
+              .returning({
+                id: users.id,
+                email: users.email,
+                first_name: users.first_name,
+                last_name: users.last_name,
+              })
+              .execute();
+            currentUser = newUser[0];
+          }
+          await drizzle
+            .insert(oauth_users)
+            .values({
+              user_id: currentUser.id,
+              provider: data.provider,
+              provider_user_id: userData.id.toString(),
+              email: userData.email,
+              created_at: new Date().toISOString(),
+            })
+            .execute();
         }
-        await drizzle.insert(oauth_users).values({
-          user_id: currentUser.id,
-          provider: data.provider,
-          provider_user_id: userData.id.toString(),
-          login: userData.login,
-          email: userData.email,
-          created_at: new Date().toISOString(),
-        }).execute();
+
+        const accessToken = await signJwt(
+          {
+            id: currentUser.id,
+            email: currentUser.email,
+            first_name: currentUser.first_name,
+            last_name: currentUser.last_name,
+          },
+          process.env.JWT_EXPIRES_IN
+        );
+
+        const refreshToken = await signJwt(
+          {
+            id: currentUser.id,
+            email: currentUser.email,
+            first_name: currentUser.first_name,
+            last_name: currentUser.last_name,
+          },
+          process.env.JWT_REFRESH_EXPIRES_IN
+        );
+        const res = await cacheController.cacheUserDataByToken(
+          accessToken,
+          refreshToken,
+          currentUser.id
+        );
+        return res;
       }
 
-      const accessToken = await signJwt(
-        {
-          id: currentUser.id,
-          login: currentUser.login,
-          first_name: currentUser.first_name,
-          last_name: currentUser.last_name,
-        },
-        process.env.JWT_EXPIRES_IN
-      );
-
-      const refreshToken = await signJwt(
-        {
-          id: currentUser.id,
-          login: currentUser.login,
-          first_name: currentUser.first_name,
-          last_name: currentUser.last_name,
-        },
-        process.env.JWT_REFRESH_EXPIRES_IN
-      );
-      const res = await cacheController.cacheUserDataByToken(
-        accessToken,
-        refreshToken,
-        currentUser.id
-      );
-      return res;
+      return {};
+    },
+    {
+      body: t.Object({
+        data: t.Object({
+          provider: t.String(),
+          accessToken: t.Optional(t.String()),
+          tokenType: t.Optional(t.String()),
+          scope: t.Optional(t.String()),
+        }),
+      }),
     }
-
-    return {
-
-    };
-  }, {
-    body: t.Object({
-      data: t.Object({
-        provider: t.String(),
-        accessToken: t.Optional(t.String()),
-        tokenType: t.Optional(t.String()),
-        scope: t.Optional(t.String()),
-      })
-    })
-  })
+  )
   .post(
     "/users",
     async ({ body: { data, fields }, user, set, drizzle }) => {
