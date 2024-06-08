@@ -8,7 +8,7 @@ import { Plus } from "lucide-react";
 
 export default function UsersListPage() {
   return (
-    <div>
+    <div className="h-screen">
       <div className="flex justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Users List</h2>
         <div className="flex items-center space-x-2">
@@ -19,7 +19,7 @@ export default function UsersListPage() {
           </UsersFormSheet>
         </div>
       </div>
-      <div className="py-10">
+      <div className="py-10 ">
         <DataTable columns={usersColumns} />
       </div>
     </div>

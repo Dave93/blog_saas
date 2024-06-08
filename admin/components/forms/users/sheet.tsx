@@ -8,7 +8,7 @@ import {
 } from "@components/ui/sheet";
 import { Drawer, DrawerContent, DrawerTrigger } from "@components/ui/drawer";
 import { Dialog, DialogContent, DialogTrigger } from "@components/ui/dialog";
-import UsersForm from "./_form";
+import UsersForm from "./_newForm";
 import { useMediaQuery } from "@admin/lib/hooks";
 
 export default function UsersFormSheet({
