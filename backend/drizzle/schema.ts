@@ -116,8 +116,7 @@ export const users = pgTable(
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     active: boolean("active").default(true).notNull(),
     phone: varchar("phone", { length: 20 }),
-    email: varchar("email", { length: 100 }),
-    login: varchar("login", { length: 100 }),
+    email: varchar("email", { length: 100 }).notNull(),
     first_name: varchar("first_name", { length: 100 }),
     last_name: varchar("last_name", { length: 100 }),
     password: varchar("password"),
@@ -140,16 +139,12 @@ export const users = pgTable(
   },
   (table) => {
     return {
-      UQ_0e2c0e1b3b0b0b0b0b0b0b0b0b0: uniqueIndex(
-        "UQ_0e2c0e1b3b0b0b0b0b0b0b0b0b0"
-      ).on(table.login),
       UQ_0e2c0e1b4b5b0b0b0b0b0b0b0b0: uniqueIndex(
         "UQ_0e2c0e1b4b5b0b0b0b0b0b0b0b0"
       ).on(table.email),
       UQ_a000cca60bcf04454e727699490: uniqueIndex(
         "UQ_a000cca60bcf04454e727699490"
       ).on(table.phone),
-      fki_users_login: index("fki_users_login").on(table.login),
     };
   }
 );
@@ -208,31 +203,28 @@ export const users_roles = pgTable(
   }
 );
 
-export const oauth_users = pgTable(
-  "oauth_users",
-  {
-    id: uuid("id").defaultRandom().primaryKey().notNull(),
-    user_id: uuid("user_id"),
-    provider: varchar("provider", { length: 255 }),
-    provider_user_id: varchar("provider_user_id", { length: 255 }),
-    login: varchar("login", { length: 255 }),
-    email: varchar("email", { length: 255 }),
-    created_at: timestamp("created_at", {
-      precision: 5,
-      withTimezone: true,
-      mode: "string",
-    })
-      .defaultNow()
-      .notNull(),
-    updated_at: timestamp("updated_at", {
-      precision: 5,
-      withTimezone: true,
-      mode: "string",
-    })
-      .defaultNow()
-      .notNull(),
-  }
-);
+export const oauth_users = pgTable("oauth_users", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  user_id: uuid("user_id"),
+  provider: varchar("provider", { length: 255 }),
+  provider_user_id: varchar("provider_user_id", { length: 255 }),
+  login: varchar("login", { length: 255 }),
+  email: varchar("email", { length: 255 }),
+  created_at: timestamp("created_at", {
+    precision: 5,
+    withTimezone: true,
+    mode: "string",
+  })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp("updated_at", {
+    precision: 5,
+    withTimezone: true,
+    mode: "string",
+  })
+    .defaultNow()
+    .notNull(),
+});
 
 export const usersToUsersRelations = relations(users_roles, ({ one }) => ({
   role: one(roles, {
