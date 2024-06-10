@@ -2,19 +2,32 @@ import { useToast } from "@admin/components/ui/use-toast";
 import { Button } from "@components/ui/button";
 import { useMemo, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
-import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 import { useCallback, useState } from "react";
 import { Chip } from "@nextui-org/chip";
 import { users } from "@backend/../drizzle/schema";
-import { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueries } from "@tanstack/react-query";
 import { Select, SelectItem, SelectedItems } from "@nextui-org/select";
 import { Selection } from "@react-types/shared";
-import { Switch } from "@admin/components/ui/switch";
+import { useForm } from "react-hook-form";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@admin/components/ui/form";
+import { Switch, Textarea } from "@nextui-org/react";
+import {
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+} from "@radix-ui/react-select";
 
 export default function UsersForm({
   setOpen,
@@ -23,18 +36,9 @@ export default function UsersForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
-  const formRef = useRef<HTMLFormElement | null>(null);
   const token = useToken();
   const { toast } = useToast();
   const [changedRoleId, setChangedRoleId] = useState<string | null>(null);
-  const [changedTerminalId, setChangedTerminalId] = useState<Selection>(
-    new Set([])
-  );
-  const [changedStoreId, setChangedStoreId] = useState<Selection>(new Set([]));
-  const closeForm = () => {
-    form.reset();
-    setOpen(false);
-  };
 
   const onAddSuccess = (actionText: string, successData: any) => {
     toast({
@@ -55,7 +59,7 @@ export default function UsersForm({
   };
 
   const createMutation = useMutation({
-    mutationFn: (newTodo: InferInsertModel<typeof users>) => {
+    mutationFn: (newTodo: {}) => {
       return apiClient.api.users.post(
         {
           data: newTodo,
@@ -188,22 +192,50 @@ export default function UsersForm({
     ],
   });
 
-  const form = useForm<InferInsertModel<typeof users>>({
+  const values = useMemo(() => {
+    if (record && record.data && "id" in record.data) {
+      return {
+        active: record.data.active,
+        login: record.data.login,
+        email: record.data.email,
+        password: "",
+        first_name: record.data.first_name,
+        last_name: record.data.last_name,
+        role: userRoleId,
+      };
+    } else {
+      return {
+        active: false,
+        login: "",
+        email: "",
+        password: "",
+        first_name: "",
+        last_name: "",
+        role: undefined,
+      };
+    }
+  }, [record]);
+
+  const form = useForm({
     defaultValues: {
-      status: record?.data?.status || "active",
-      login: record?.data?.login || "",
+      active: false,
+      login: "",
+      email: "",
       password: "",
-      first_name: record?.data?.first_name || "",
-      last_name: record?.data?.last_name || "",
+      first_name: "",
+      last_name: "",
+      role: undefined,
     },
-    onSubmit: async ({ value }) => {
-      if (recordId) {
-        updateMutation.mutate({ data: value, id: recordId });
-      } else {
-        createMutation.mutate(value);
-      }
-    },
+    values,
   });
+
+  const onSubmit = async ({ data }) => {
+    if (recordId) {
+      updateMutation.mutate({ data: value, id: recordId });
+    } else {
+      createMutation.mutate(value);
+    }
+  };
 
   const userRoleId = useMemo(() => {
     if (changedRoleId) {
@@ -229,9 +261,8 @@ export default function UsersForm({
         user_id: userId,
         role_id: changedRoleId ? changedRoleId! : userRoleId!,
       });
-    
     },
-    [changedRoleId, userRoleId, recordId, changedTerminalId, changedStoreId]
+    [changedRoleId, userRoleId, recordId]
   );
 
   const isLoading = useMemo(() => {
@@ -241,162 +272,123 @@ export default function UsersForm({
   }, [createMutation.isPending, updateMutation.isPending, isRolesLoading]);
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        void form.handleSubmit();
-      }}
-      className="space-y-2 grid grid-cols-1 gap-4 sm:grid-cols-2 p-6"
-    >
-      <div className="space-y-2 col-start-1 col-end-3">
-        <div>
-          <Label>Статус</Label>
-        </div>
-        <form.Field name="active">
-          {(field) => {
-            return (
-              <Switch
-              checked={field.getValue()}
-              onCheckedChange={(e)=> field.setValue(e)}
-              />
-            );
-          }}
-        </form.Field>
-      </div>
-      <div className="space-y-2">
-        <div>
-          <Label>Логин</Label>
-        </div>
-        <form.Field name="login">
-          {(field) => {
-            return (
-              <>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  value={field.getValue() ?? ""}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => {
-                    // @ts-ignore
-                    field.handleChange(e.target.value);
-                  }}
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-4">
+        <FormField
+          control={form.control}
+          name="active"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2">
+              <div className="space-y-0.5">
+                <FormLabel>Status</FormLabel>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
                 />
-              </>
-            );
-          }}
-        </form.Field>
-      </div>
-      <div className="space-y-2">
-        <div>
-          <Label>Пароль</Label>
-        </div>
-        <form.Field name="password">
-          {(field) => {
-            return (
-              <>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  value={field.getValue() ?? ""}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => {
-                    // @ts-ignore
-                    field.handleChange(e.target.value);
-                  }}
-                />
-              </>
-            );
-          }}
-        </form.Field>
-      </div>
-     
-
-      <div className="space-y-2">
-        <div>
-          <Label>Имя</Label>
-        </div>
-        <form.Field name="first_name">
-          {(field) => {
-            return (
-              <>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  value={field.getValue() ?? ""}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => {
-                    // @ts-ignore
-                    field.handleChange(e.target.value);
-                  }}
-                />
-              </>
-            );
-          }}
-        </form.Field>
-      </div>
-      <div className="space-y-2">
-        <div>
-          <Label>Фамилия</Label>
-        </div>
-        <form.Field name="last_name">
-          {(field) => {
-            return (
-              <>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  value={field.getValue() ?? ""}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => {
-                    // @ts-ignore
-                    field.handleChange(e.target.value);
-                  }}
-                />
-              </>
-            );
-          }}
-        </form.Field>
-      </div>
-      <div className="space-y-2 col-span-2">
-        <div>
-          <Label>Роль</Label>
-        </div>
-        <Select
-          label="Роль"
-          placeholder="Выберите роль"
-          selectedKeys={userRoleId ? [userRoleId] : []}
-          className=""
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-            // @ts-ignore
-            setChangedRoleId(e.target.value);
-          }}
-          popoverProps={{
-            portalContainer: formRef.current!,
-            offset: 0,
-            containerPadding: 0,
-          }}
-        >
-          {Array.isArray(rolesData) ? (
-            rolesData?.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.name}
-              </SelectItem>
-            ))
-          ) : (
-            <SelectItem key="0" value="0">
-              Загрузка...
-            </SelectItem>
+              </FormControl>
+            </FormItem>
           )}
-        </Select>
-      </div>
-      <div className="pt-4">
-        <Button type="submit" disabled={isLoading}>
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Submit
-        </Button>
-      </div>
-    </form>
+        />
+        <FormField
+          control={form.control}
+          name="login"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Login</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input type="email" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Password</FormLabel>
+              <FormControl>
+                <Input type="password" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="first_name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>First name</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="last_name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Last name</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="role"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Role</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                value={field.value}
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose the role" />
+                  </SelectTrigger>
+                </FormControl>
+
+                <SelectContent>
+                  {Array.isArray(rolesData) &&
+                    rolesData.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button type="submit">Submit</Button>
+      </form>
+    </Form>
   );
 }

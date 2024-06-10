@@ -14,15 +14,16 @@ const providers: Provider[] = [
     Credentials({
         name: "credentials",
         credentials: {
-            login: { label: "Login", type: "text" },
+            email: { label: "Email", type: "text" },
             password: { label: "Password", type: "password" },
         },
         authorize: async (credentials) => {
             if (typeof credentials !== "undefined") {
-                const { login, password } = credentials;
+                const { email, password } = credentials;
+                console.log("credentials", credentials);
                 try {
                     const { data: res, status, error } = await apiClient.api.users.login.post({
-                        login: login!.toString(),
+                        email: email!.toString(),
                         password: password!.toString(),
                     });
                     console.log('res', res);

@@ -8,6 +8,7 @@ import { Button, Input } from "@nextui-org/react";
 import { useState } from "react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { z } from "zod";
+import { action } from "./signinaction";
 
 type FormErrors = {
   email?: undefined | string[];
@@ -47,16 +48,18 @@ export default function SignInPage() {
   }
 
   async function handleSubmit(e: React.FormEvent) {
+    console.log("handleSubmit", data);
     e.preventDefault();
     setLoading(true);
 
     const validatedFields = formSchema.safeParse(data);
-
+    console.log("validatedFields", validatedFields);
     if (!validatedFields.success) {
       setErrors(validatedFields.error.formErrors.fieldErrors);
       setLoading(false);
     } else {
       // no zod errors
+
       const signInResponse = await signIn("credentials", {
         email: data.email,
         password: data.password,
@@ -77,6 +80,8 @@ export default function SignInPage() {
     }
   }
 
+  console.log("validation", errors);
+
   return (
     <Card
       isBlurred
@@ -84,7 +89,7 @@ export default function SignInPage() {
       className="border-none bg-background/60 dark:bg-default-100/50 max-w-sm backdrop-saturate-150 px-8 pb-10 pt-6"
       shadow="sm"
     >
-      <form onSubmit={handleSubmit}>
+      <form action={action}>
         <CardHeader className="p-0">
           <div className="pb-6 text-xl">Sign in</div>
         </CardHeader>
@@ -92,14 +97,16 @@ export default function SignInPage() {
           <div className="space-y-4">
             <Input
               type="text"
-              placeholder="Enter your login"
-              label="Login"
-              name="login"
+              placeholder="Enter your email"
+              label="Email"
+              name="email"
+              onChange={handleChange}
             />
             <Input
               label="Password"
               placeholder="Enter your password"
               name="password"
+              onChange={handleChange}
               endContent={
                 <button
                   className="focus:outline-none"
@@ -115,7 +122,13 @@ export default function SignInPage() {
               }
               type={isVisible ? "text" : "password"}
             />
-            <Button type="submit" className="mt-4 w-full" variant="shadow">
+            <Button
+              type="submit"
+              className="mt-4 w-full cursor-pointer"
+              variant="shadow"
+              disabled={loading}
+              onClick={handleSubmit}
+            >
               Login
             </Button>
           </div>
