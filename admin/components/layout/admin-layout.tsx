@@ -12,7 +12,7 @@ export default function AdminLayout({
     <div className="flex-col">
       <div className="border-b sticky top-0">
         <div className="flex h-16 items-center px-4 bg-background">
-          <NavigationMenuDemo />
+          {/* <NavigationMenuDemo /> */}
           <div className="ml-auto flex items-center space-x-4">
             <Search />
             <UserNav />
