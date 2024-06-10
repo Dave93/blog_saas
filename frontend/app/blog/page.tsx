@@ -2,7 +2,6 @@ import React from "react";
 import { title } from "@/components/primitives";
 import { CardComponent } from "@/components/card";
 
-
 export default function BlogPage() {
   return (
     <div>

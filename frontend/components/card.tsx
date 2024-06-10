@@ -10,9 +10,9 @@ import Link from "next/link";
 
 export const CardComponent = () => {
   return (
-    <div className="grid grid-cols-3 gap-4 p-8">
+    <div className="flex-wrap gap-4 mt-4 grid grid-cols-3">
       {Array.from({ length: 10 }).map((_, index) => (
-        <Link href="/blog/[id]" as="/blog/1">
+        <Link href={`/blog/${index}`} key={index}>
           <Card className="py-4">
             <CardHeader className="pb-0 pt-2 px-4 flex-col items-start">
               <p className="text-tiny uppercase font-bold">Daily Mix</p>
