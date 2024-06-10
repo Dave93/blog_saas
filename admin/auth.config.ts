@@ -18,6 +18,7 @@ const providers: Provider[] = [
             password: { label: "Password", type: "password" },
         },
         authorize: async (credentials) => {
+            console.log('credentials', credentials);
             if (typeof credentials !== "undefined") {
                 const { email, password } = credentials;
                 console.log("credentials", credentials);
@@ -65,6 +66,7 @@ export default {
         signIn: async ({
             user,
             account,
+            credentials
         }) => {
             if (account?.type === 'oauth') {
                 const {
@@ -92,6 +94,33 @@ export default {
                     return false;
                 }
                 return true;
+            } else {
+                if (typeof credentials !== "undefined") {
+                    const { email, password } = credentials;
+                    try {
+                        const { data: res, status, error } = await apiClient.api.users.login.post({
+                            email: email!.toString(),
+                            password: password!.toString(),
+                        });
+                        if (status == 200 && res && "accessToken" in res) {
+                            user = {
+                                ...res.user,
+                                accessToken: res.accessToken,
+                                refreshToken: res.refreshToken,
+                                permissions: res.permissions,
+                                role: res.role,
+                            };
+                        } else if (status == 401) {
+                            throw new AuthError("Неверный логин или пароль");
+                        } else {
+                            throw new AuthError("Неверный логин или пароль");
+                        }
+                    } catch (error) {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
             }
             return true;
         },

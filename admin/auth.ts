@@ -5,7 +5,7 @@ import authConfig from "./auth.config";
 export const { auth, handlers, signIn, signOut } = NextAuth({
     ...authConfig,
     pages: {
-        // signIn: "/signin",
-        // error: '/authError',
+        signIn: "/signin",
+        error: '/authError',
     },
 });

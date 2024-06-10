@@ -30,57 +30,9 @@ const formSchema = z.object({
 });
 
 export default function SignInPage() {
-  const [data, setData] = useState(initialState);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [loading, setLoading] = useState(false);
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
-  const router = useRouter();
   const [isVisible, setIsVisible] = useState(false);
 
   const toggleVisibility = () => setIsVisible(!isVisible);
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setData({
-      ...data,
-      [e.target.name]: e.target.value,
-    });
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    console.log("handleSubmit", data);
-    e.preventDefault();
-    setLoading(true);
-
-    const validatedFields = formSchema.safeParse(data);
-    console.log("validatedFields", validatedFields);
-    if (!validatedFields.success) {
-      setErrors(validatedFields.error.formErrors.fieldErrors);
-      setLoading(false);
-    } else {
-      // no zod errors
-
-      const signInResponse = await signIn("credentials", {
-        email: data.email,
-        password: data.password,
-        redirect: false,
-      });
-      if (signInResponse && !signInResponse?.ok) {
-        setErrors({
-          strapiError: signInResponse.error
-            ? signInResponse.error
-            : "Something went wrong.",
-        });
-        setLoading(false);
-      } else {
-        // handle success
-        router.push(callbackUrl);
-        router.refresh();
-      }
-    }
-  }
-
-  console.log("validation", errors);
 
   return (
     <Card
@@ -100,13 +52,11 @@ export default function SignInPage() {
               placeholder="Enter your email"
               label="Email"
               name="email"
-              onChange={handleChange}
             />
             <Input
               label="Password"
               placeholder="Enter your password"
               name="password"
-              onChange={handleChange}
               endContent={
                 <button
                   className="focus:outline-none"
@@ -126,8 +76,6 @@ export default function SignInPage() {
               type="submit"
               className="mt-4 w-full cursor-pointer"
               variant="shadow"
-              disabled={loading}
-              onClick={handleSubmit}
             >
               Login
             </Button>
