@@ -11,6 +11,8 @@ import AdminLayout from "./admin-layout";
 import NoRoleLayout from "./noRole-layout";
 import ManagerLayout from "./manager-layout";
 import dynamic from "next/dynamic";
+import { auth } from "@admin/auth";
+import SignInLayout from "./signin-layout";
 
 const NextUIProviderClient = dynamic(
   () => import("@nextui-org/system").then((mod) => mod.NextUIProvider),
@@ -19,16 +21,21 @@ const NextUIProviderClient = dynamic(
   }
 );
 
-export default function MainLayout({
+export default async function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
   return (
     <Providers>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <ThemeProvider attribute="class">
         <NextUIProviderClient>
-          <AdminLayout>{children}</AdminLayout>
+          {session?.user ? (
+            <AdminLayout>{children}</AdminLayout>
+          ) : (
+            <SignInLayout>{children}</SignInLayout>
+          )}
           <Toaster />
         </NextUIProviderClient>
       </ThemeProvider>

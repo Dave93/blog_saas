@@ -1,4 +1,3 @@
-import { useGetRole } from "@admin/utils/get_role";
 import { NavigationMenuDemo } from "@components/layout/main-nav";
 import { Search } from "lucide-react";
 import { UserNav } from "@components/layout/user-nav";
