@@ -33,6 +33,7 @@ export default function UsersForm({
   recordId?: string;
 }) {
   const token = useToken();
+  console.log("token from from", token);
   const { toast } = useToast();
   const [changedRoleId, setChangedRoleId] = useState<string | null>(null);
 
@@ -199,6 +200,8 @@ export default function UsersForm({
   });
 
   console.log("roles data", rolesData);
+
+  console.log("record", record);
 
   const values = useMemo(() => {
     if (record && record.data && "email" in record.data) {

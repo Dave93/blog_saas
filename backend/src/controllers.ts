@@ -6,6 +6,7 @@ import { rolesPermissionsController } from "./modules/roles_permissions/controll
 import { settingsController } from "./modules/settings/controller";
 import { usersPermissionsController } from "./modules/users_permissions/controller";
 import { usersRolesController } from "./modules/users_roles/controller";
+import { blogController } from "./modules/blog/controller";
 
 export const apiController = new Elysia({
   name: "@api",
@@ -17,4 +18,5 @@ export const apiController = new Elysia({
   .use(rolesPermissionsController)
   .use(settingsController)
   .use(usersPermissionsController)
-  .use(usersRolesController);
+  .use(usersRolesController)
+  .use(blogController);
