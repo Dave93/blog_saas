@@ -9,6 +9,8 @@ import {
   text,
   index,
   primaryKey,
+  jsonb,
+  integer,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -236,3 +238,28 @@ export const usersToUsersRelations = relations(users_roles, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+export const blog = pgTable("blog", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  active: boolean("active").default(false).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: jsonb("content"),
+  published_at: timestamp("published_at", { precision: 5 }),
+  viewed_count: integer("viewed_count").default(0).notNull(),
+  created_by: uuid("created_by"),
+  updated_by: uuid("updated_by"),
+  created_at: timestamp("created_at", {
+    precision: 5,
+    withTimezone: true,
+    mode: "string",
+  })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp("updated_at", {
+    precision: 5,
+    withTimezone: true,
+    mode: "string",
+  })
+    .defaultNow()
+    .notNull(),
+});
